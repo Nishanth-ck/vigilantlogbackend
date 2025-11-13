@@ -35,7 +35,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 LOG_FILE = CONFIG_DIR / "monitor.log"
 
 DEFAULT_CONFIG = {
-    "backend_url": "https://your-backend.onrender.com",
+    "backend_url": "https://vigilantlog-backend.onrender.com",
     "device_id": socket.gethostname(),
     "monitor_folders": [],
     "backup_folder": str(Path.home() / "VigilantLog_Backups"),
@@ -325,7 +325,7 @@ def main():
     # First-time setup
     config = load_config()
     
-    if config["backend_url"] == "https://your-backend.onrender.com":
+    if config["backend_url"] == "https://vigilantlog-backend.onrender.com":
         log_message("⚠️  Please configure backend URL")
         log_message(f"Edit: {CONFIG_FILE}")
         # Don't exit - user can configure via web interface
