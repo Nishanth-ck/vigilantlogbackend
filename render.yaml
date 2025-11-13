@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: vigilantlogbackend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn app:app"
+    plan: free
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: DB_NAME
+        value: vigilantlog
+
