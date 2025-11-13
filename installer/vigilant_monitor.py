@@ -149,6 +149,7 @@ def sync_with_backend():
     config = load_config()
     
     if not is_connected():
+        log_message("No internet connection. Using local config.")
         return config
     
     try:
@@ -165,15 +166,23 @@ def sync_with_backend():
             data = response.json()
             remote_state = data.get("state", {})
             
+            # Update local config from remote
             if remote_state.get("monitor_folders"):
                 config["monitor_folders"] = remote_state["monitor_folders"]
+                log_message(f"Updated monitor folders: {len(remote_state['monitor_folders'])} folders")
+            
             if remote_state.get("backup_folder"):
                 config["backup_folder"] = remote_state["backup_folder"]
+                log_message(f"Updated backup folder: {remote_state['backup_folder']}")
+            
             if "startMonitoring" in remote_state:
                 config["monitoring_enabled"] = remote_state["startMonitoring"]
+                log_message(f"Monitoring enabled: {remote_state['startMonitoring']}")
             
             save_config(config)
-            log_message("Synced with backend")
+            log_message("✓ Synced with backend")
+        else:
+            log_message(f"Backend returned {response.status_code}")
         
     except Exception as e:
         log_message(f"Sync error: {e}")
@@ -325,7 +334,7 @@ def main():
     # First-time setup
     config = load_config()
     
-    if config["backend_url"] == "https://vigilantlog-backend.onrender.com":
+    if config["backend_url"] == "https://your-backend.onrender.com":
         log_message("⚠️  Please configure backend URL")
         log_message(f"Edit: {CONFIG_FILE}")
         # Don't exit - user can configure via web interface
@@ -357,4 +366,5 @@ if __name__ == "__main__":
     except Exception as e:
         log_message(f"Fatal error: {e}")
         sys.exit(1)
+
 

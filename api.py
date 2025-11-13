@@ -4,8 +4,6 @@ from datetime import datetime
 import os
 from pymongo import MongoClient
 import gridfs
-from state import load_state, save_state
-import file_protector
 
 app = Flask(__name__)
 CORS(app)
@@ -28,95 +26,141 @@ def health():
     return jsonify({"ok": True, "time": now_iso()})
 
 
-# ====== FILE MONITORING ENDPOINTS ======
+# ====== FILE MONITORING CONFIGURATION ENDPOINTS ======
+# Note: The backend only stores configuration in MongoDB.
+# Actual file monitoring happens on the user's desktop via the .exe agent.
 
 @app.route("/api/file-monitor/state", methods=["GET"])
 def get_file_monitor_state():
-    """Get file monitoring configuration state."""
-    state = load_state()
-    return jsonify({
-        "success": True,
-        "state": state,
-        "monitoring_active": file_protector.get_monitoring_status()
-    })
+    """Get file monitoring configuration state from MongoDB."""
+    try:
+        if db is None:
+            return jsonify({
+                "success": True,
+                "state": {
+                    "monitor_folders": [],
+                    "backup_folder": "",
+                    "startMonitoring": False
+                },
+                "monitoring_active": False
+            })
+        
+        # Get device-specific config from MongoDB
+        device_id = request.args.get("deviceId", "default")
+        config = db.file_monitor_config.find_one({"device_id": device_id})
+        
+        if not config:
+            return jsonify({
+                "success": True,
+                "state": {
+                    "monitor_folders": [],
+                    "backup_folder": "",
+                    "startMonitoring": False
+                },
+                "monitoring_active": False
+            })
+        
+        return jsonify({
+            "success": True,
+            "state": {
+                "monitor_folders": config.get("monitor_folders", []),
+                "backup_folder": config.get("backup_folder", ""),
+                "startMonitoring": config.get("startMonitoring", False)
+            },
+            "monitoring_active": config.get("startMonitoring", False)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/file-monitor/state", methods=["POST"])
 def update_file_monitor_state():
-    """Update file monitoring configuration."""
+    """Update file monitoring configuration in MongoDB."""
     try:
+        if db is None:
+            return jsonify({"success": False, "error": "Database not configured"}), 500
+        
         data = request.json
-        state = load_state()
+        device_id = data.get("device_id", "default")
         
-        if "monitor_folders" in data:
-            state["monitor_folders"] = data["monitor_folders"]
-        if "backup_folder" in data:
-            state["backup_folder"] = data["backup_folder"]
-        if "startMonitoring" in data:
-            state["startMonitoring"] = data["startMonitoring"]
+        # Update or insert config in MongoDB
+        config = {
+            "device_id": device_id,
+            "monitor_folders": data.get("monitor_folders", []),
+            "backup_folder": data.get("backup_folder", ""),
+            "startMonitoring": data.get("startMonitoring", False),
+            "updated_at": now_iso()
+        }
         
-        save_state(state)
-        return jsonify({"success": True, "state": state})
+        db.file_monitor_config.update_one(
+            {"device_id": device_id},
+            {"$set": config},
+            upsert=True
+        )
+        
+        return jsonify({"success": True, "state": config})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
 
 @app.route("/api/file-monitor/start", methods=["POST"])
 def start_file_monitoring():
-    """Start file monitoring."""
+    """Signal to start file monitoring (desktop agent will pick this up)."""
     try:
-        state = load_state()
-        state["startMonitoring"] = True
-        save_state(state)
+        if db is None:
+            return jsonify({"success": False, "error": "Database not configured"}), 500
         
-        success = file_protector.start_file_monitoring()
-        if success:
-            return jsonify({"success": True, "message": "File monitoring started"})
-        else:
-            return jsonify({"success": False, "error": "Failed to start monitoring"}), 500
+        data = request.json or {}
+        device_id = data.get("device_id", "default")
+        
+        # Update MongoDB config
+        db.file_monitor_config.update_one(
+            {"device_id": device_id},
+            {"$set": {"startMonitoring": True, "updated_at": now_iso()}},
+            upsert=True
+        )
+        
+        return jsonify({
+            "success": True, 
+            "message": "Monitoring signal sent. Desktop agent will start within 60 seconds."
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/file-monitor/stop", methods=["POST"])
 def stop_file_monitoring():
-    """Stop file monitoring."""
+    """Signal to stop file monitoring (desktop agent will pick this up)."""
     try:
-        state = load_state()
-        state["startMonitoring"] = False
-        save_state(state)
+        if db is None:
+            return jsonify({"success": False, "error": "Database not configured"}), 500
         
-        file_protector.stop_file_monitoring()
-        return jsonify({"success": True, "message": "File monitoring stopped"})
+        data = request.json or {}
+        device_id = data.get("device_id", "default")
+        
+        # Update MongoDB config
+        db.file_monitor_config.update_one(
+            {"device_id": device_id},
+            {"$set": {"startMonitoring": False, "updated_at": now_iso()}},
+            upsert=True
+        )
+        
+        return jsonify({
+            "success": True, 
+            "message": "Stop signal sent. Desktop agent will stop within 60 seconds."
+        })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/file-monitor/backups/local", methods=["GET"])
 def get_local_backups():
-    """Get list of local backup files."""
-    try:
-        state = load_state()
-        backup_folder = state.get("backup_folder", "")
-        
-        if not backup_folder or not os.path.exists(backup_folder):
-            return jsonify({"success": True, "files": []})
-        
-        files = []
-        for filename in os.listdir(backup_folder):
-            file_path = os.path.join(backup_folder, filename)
-            if os.path.isfile(file_path):
-                stat = os.stat(file_path)
-                files.append({
-                    "name": filename,
-                    "size": stat.st_size,
-                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
-                })
-        
-        files.sort(key=lambda x: x["modified"], reverse=True)
-        return jsonify({"success": True, "files": files})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    """Local backups are managed by the desktop agent, not the server."""
+    return jsonify({
+        "success": True, 
+        "files": [],
+        "message": "Local backups are on your computer. Use the desktop agent to view them."
+    })
 
 
 @app.route("/api/file-monitor/backups/cloud", methods=["GET"])
@@ -142,28 +186,45 @@ def get_cloud_backups():
 
 @app.route("/api/file-monitor/upload", methods=["POST"])
 def manual_upload():
-    """Manually trigger upload to MongoDB."""
+    """Upload endpoint - desktop agent will upload files to GridFS."""
     try:
-        file_protector.upload_to_mongo()
-        return jsonify({"success": True, "message": "Upload completed"})
+        if db is None:
+            return jsonify({"success": False, "error": "Database not configured"}), 500
+        
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "Empty filename"}), 400
+        
+        # Save to GridFS
+        fs = gridfs.GridFS(db)
+        
+        # Delete old version if exists
+        old_file = db.fs.files.find_one({"filename": file.filename})
+        if old_file:
+            fs.delete(old_file["_id"])
+        
+        # Upload new version
+        fs.put(
+            file.read(),
+            filename=file.filename,
+            uploadDate=datetime.utcnow()
+        )
+        
+        return jsonify({"success": True, "message": f"Uploaded {file.filename}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/file-monitor/backups/local/<filename>", methods=["GET"])
 def download_local_backup(filename):
-    """Download a local backup file."""
-    try:
-        state = load_state()
-        backup_folder = state.get("backup_folder", "")
-        file_path = os.path.join(backup_folder, filename)
-        
-        if not os.path.exists(file_path):
-            return jsonify({"success": False, "error": "File not found"}), 404
-        
-        return send_file(file_path, as_attachment=True, download_name=filename)
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    """Local backups are on the user's machine, not accessible from server."""
+    return jsonify({
+        "success": False, 
+        "error": "Local backups are on your computer. Access them through the desktop agent."
+    }), 404
 
 
 @app.route("/api/file-monitor/backups/cloud/<filename>", methods=["GET"])
@@ -194,19 +255,11 @@ def download_cloud_backup(filename):
 
 @app.route("/api/file-monitor/backups/local/<filename>", methods=["DELETE"])
 def delete_local_backup(filename):
-    """Delete a local backup file."""
-    try:
-        state = load_state()
-        backup_folder = state.get("backup_folder", "")
-        file_path = os.path.join(backup_folder, filename)
-        
-        if not os.path.exists(file_path):
-            return jsonify({"success": False, "error": "File not found"}), 404
-        
-        os.remove(file_path)
-        return jsonify({"success": True, "message": f"Deleted {filename}"})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+    """Local backups are on the user's machine, not accessible from server."""
+    return jsonify({
+        "success": False, 
+        "error": "Local backups are on your computer. Delete them through the desktop agent."
+    }), 404
 
 
 @app.route("/api/file-monitor/backups/cloud/<filename>", methods=["DELETE"])
