@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_file
+     from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from datetime import datetime
 import os
@@ -154,12 +154,47 @@ def stop_file_monitoring():
 
 @app.route("/api/file-monitor/backups/local", methods=["GET"])
 def get_local_backups():
-    """Local backups are managed by the desktop agent, not the server."""
-    return jsonify({
-        "success": True, 
-        "files": [],
-        "message": "Local backups are on your computer. Use the desktop agent to view them."
-    })
+    """Get local backup metadata reported by desktop agents."""
+    try:
+        if db is None:
+            return jsonify({"success": True, "files": []})
+        
+        device_id = request.args.get("deviceId", "default")
+        if not device_id:
+            device_id = "default"
+        
+        # Get local backup metadata from MongoDB
+        metadata = db.local_backup_metadata.find_one({"device_id": device_id})
+        
+        if not metadata or "files" not in metadata:
+            return jsonify({"success": True, "files": []})
+        
+        return jsonify({"success": True, "files": metadata["files"]})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/api/file-monitor/backups/local/report", methods=["POST"])
+def report_local_backups():
+    """Desktop agent reports local backup file metadata."""
+    try:
+        if db is None:
+            return jsonify({"success": False, "error": "Database not configured"}), 500
+        
+        data = request.json or {}
+        device_id = data.get("device_id") or "default"
+        files = data.get("files", [])
+        
+        # Store metadata in MongoDB
+        db.local_backup_metadata.update_one(
+            {"device_id": device_id},
+            {"$set": {"device_id": device_id, "files": files, "updated_at": now_iso()}},
+            upsert=True
+        )
+        
+        return jsonify({"success": True, "message": f"Reported {len(files)} local backups"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route("/api/file-monitor/backups/cloud", methods=["GET"])

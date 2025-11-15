@@ -11,8 +11,8 @@ python -m pip install -r requirements.txt
 
 REM Build executable with PyInstaller
 echo Building executable...
+echo NOTE: Building with console window enabled for debugging
 python -m PyInstaller --onefile ^
-    --windowed ^
     --name "VigilantLogMonitor" ^
     --hidden-import=PIL ^
     --hidden-import=pystray ^
@@ -30,5 +30,4 @@ echo 1. Download WiX Toolset: https://wixtoolset.org/
 echo 2. Run: build_msi.bat
 echo.
 pause
-
 

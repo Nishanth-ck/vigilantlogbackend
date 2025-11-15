@@ -58,10 +58,16 @@ def log_message(message):
     log_entry = f"[{timestamp}] {message}\n"
     
     CONFIG_DIR.mkdir(exist_ok=True)
-    with open(LOG_FILE, "a") as f:
+    with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(log_entry)
     
-    print(log_entry.strip())
+    # Print with safe encoding for Windows console
+    try:
+        print(log_entry.strip())
+    except UnicodeEncodeError:
+        # Fallback: replace problematic characters with ASCII equivalents
+        safe_message = log_entry.strip().encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
 
 
 def load_config():
@@ -182,7 +188,7 @@ def sync_with_backend():
                 log_message(f"Monitoring enabled: {remote_state['startMonitoring']}")
             
             save_config(config)
-            log_message("✓ Synced with backend")
+            log_message("Synced with backend")
         else:
             log_message(f"Backend returned {response.status_code}")
         
@@ -224,6 +230,46 @@ def start_monitoring():
         monitoring_active = True
         log_message("Monitoring started")
         update_tray_icon()
+
+
+def report_local_backups():
+    """Report local backup file metadata to backend so UI can display them."""
+    config = load_config()
+    backup_folder = config.get("backup_folder")
+    backend_url = config.get("backend_url", DEFAULT_CONFIG["backend_url"])
+    device_id = config.get("device_id") or "default"
+
+    if not backup_folder or not os.path.exists(backup_folder):
+        return
+
+    if not is_connected():
+        return
+
+    try:
+        files = []
+        for filename in os.listdir(backup_folder):
+            file_path = os.path.join(backup_folder, filename)
+            if os.path.isfile(file_path):
+                stat = os.stat(file_path)
+                files.append({
+                    "name": filename,
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                })
+
+        # Send metadata to backend
+        resp = requests.post(
+            f"{backend_url}/api/file-monitor/backups/local/report",
+            json={"device_id": device_id, "files": files},
+            timeout=10,
+        )
+
+        if resp.ok:
+            log_message(f"Reported {len(files)} local backups to backend")
+        else:
+            log_message(f"Failed to report local backups: {resp.status_code}")
+    except Exception as e:
+        log_message(f"Report local backups error: {e}")
 
 
 def upload_backups_to_cloud():
@@ -296,8 +342,9 @@ def sync_loop():
             elif not should_monitor and monitoring_active:
                 stop_monitoring()
 
-            # When monitoring is active, periodically push backups to cloud
+            # When monitoring is active, periodically sync backup metadata and upload to cloud
             if monitoring_active:
+                report_local_backups()
                 upload_backups_to_cloud()
 
         except Exception as e:
@@ -383,7 +430,7 @@ def main():
     config = load_config()
     
     if config["backend_url"] == "https://your-backend.onrender.com":
-        log_message("⚠️  Please configure backend URL")
+        log_message("WARNING: Please configure backend URL")
         log_message(f"Edit: {CONFIG_FILE}")
         # Don't exit - user can configure via web interface
     
@@ -414,7 +461,5 @@ if __name__ == "__main__":
     except Exception as e:
         log_message(f"Fatal error: {e}")
         sys.exit(1)
-
-
 
 
