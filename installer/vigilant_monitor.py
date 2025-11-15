@@ -36,7 +36,9 @@ LOG_FILE = CONFIG_DIR / "monitor.log"
 
 DEFAULT_CONFIG = {
     "backend_url": "https://vigilantlog-backend.onrender.com",
-    "device_id": socket.gethostname(),
+    # Use a shared default ID when the web app does not provide a device name.
+    # This keeps things working even when users skip the device-name step.
+    "device_id": "default",
     "monitor_folders": [],
     "backup_folder": str(Path.home() / "VigilantLog_Backups"),
     "auto_start": True,
@@ -153,8 +155,8 @@ def sync_with_backend():
         return config
     
     try:
-        backend_url = config["backend_url"]
-        device_id = config["device_id"]
+        backend_url = config.get("backend_url", DEFAULT_CONFIG["backend_url"])
+        device_id = config.get("device_id") or "default"
         
         response = requests.get(
             f"{backend_url}/api/file-monitor/state",
@@ -224,6 +226,48 @@ def start_monitoring():
         update_tray_icon()
 
 
+def upload_backups_to_cloud():
+    """Upload local backup files to the backend's cloud storage endpoint."""
+    config = load_config()
+    backup_folder = config.get("backup_folder")
+    backend_url = config.get("backend_url", DEFAULT_CONFIG["backend_url"])
+
+    if not backup_folder or not os.path.exists(backup_folder):
+        log_message("Cloud upload skipped: backup folder not found")
+        return
+
+    if not is_connected():
+        log_message("Cloud upload skipped: no internet connection")
+        return
+
+    try:
+        for filename in os.listdir(backup_folder):
+            file_path = os.path.join(backup_folder, filename)
+            if not os.path.isfile(file_path):
+                continue
+
+            try:
+                with open(file_path, "rb") as f:
+                    files = {"file": (filename, f, "application/octet-stream")}
+                    resp = requests.post(
+                        f"{backend_url}/api/file-monitor/upload",
+                        files=files,
+                        timeout=30,
+                    )
+
+                if resp.ok:
+                    log_message(f"Uploaded {filename} to cloud")
+                else:
+                    log_message(
+                        f"Cloud upload failed for {filename}: "
+                        f"{resp.status_code} {resp.text[:200]}"
+                    )
+            except Exception as e:
+                log_message(f"Cloud upload error for {filename}: {e}")
+    except Exception as e:
+        log_message(f"Cloud upload batch error: {e}")
+
+
 def stop_monitoring():
     """Stop file monitoring."""
     global monitoring_active, observers
@@ -243,18 +287,22 @@ def sync_loop():
     while True:
         try:
             config = sync_with_backend()
-            
+
             # Auto-start/stop based on backend config
             should_monitor = config.get("monitoring_enabled", False)
-            
+
             if should_monitor and not monitoring_active:
                 start_monitoring()
             elif not should_monitor and monitoring_active:
                 stop_monitoring()
-            
+
+            # When monitoring is active, periodically push backups to cloud
+            if monitoring_active:
+                upload_backups_to_cloud()
+
         except Exception as e:
             log_message(f"Sync loop error: {e}")
-        
+
         time.sleep(60)  # Sync every minute
 
 
@@ -366,5 +414,7 @@ if __name__ == "__main__":
     except Exception as e:
         log_message(f"Fatal error: {e}")
         sys.exit(1)
+
+
 
 

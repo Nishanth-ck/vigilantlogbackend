@@ -10,7 +10,8 @@ from pymongo import MongoClient
 import gridfs
 
 # ====== MongoDB Connection ======
-MONGO_URI = os.environ.get("MONGO_URI", "")
+# Prefer MONGO_URI from environment; fall back to the provided cluster for convenience.
+MONGO_URI = os.environ.get("MONGO_URI") or "mongodb+srv://nishanthck09072004_db_user:b9hoRGMqNCbGSK98@cluster0.yyhfish.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = os.environ.get("DB_NAME", "vigilantlog")
 
 # Global monitoring state
@@ -245,4 +246,6 @@ def stop_file_monitoring():
 def get_monitoring_status():
     """Get current monitoring status."""
     return monitoring_active
+
+
 

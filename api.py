@@ -9,7 +9,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Environment
-MONGO_URI = os.environ.get("MONGO_URI", "")
+# Prefer MONGO_URI from environment; fall back to the provided cluster for convenience.
+MONGO_URI = os.environ.get("MONGO_URI") or "mongodb+srv://nishanthck09072004_db_user:b9hoRGMqNCbGSK98@cluster0.yyhfish.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 DB_NAME = os.environ.get("DB_NAME", "vigilantlog")
 
 client = MongoClient(MONGO_URI) if MONGO_URI else None
@@ -44,9 +45,10 @@ def get_file_monitor_state():
                 },
                 "monitoring_active": False
             })
-        
         # Get device-specific config from MongoDB
         device_id = request.args.get("deviceId", "default")
+        if not device_id:
+            device_id = "default"
         config = db.file_monitor_config.find_one({"device_id": device_id})
         
         if not config:
@@ -79,9 +81,8 @@ def update_file_monitor_state():
     try:
         if db is None:
             return jsonify({"success": False, "error": "Database not configured"}), 500
-        
-        data = request.json
-        device_id = data.get("device_id", "default")
+        data = request.json or {}
+        device_id = data.get("device_id") or "default"
         
         # Update or insert config in MongoDB
         config = {
@@ -109,9 +110,8 @@ def start_file_monitoring():
     try:
         if db is None:
             return jsonify({"success": False, "error": "Database not configured"}), 500
-        
         data = request.json or {}
-        device_id = data.get("device_id", "default")
+        device_id = data.get("device_id") or "default"
         
         # Update MongoDB config
         db.file_monitor_config.update_one(
@@ -134,9 +134,8 @@ def stop_file_monitoring():
     try:
         if db is None:
             return jsonify({"success": False, "error": "Database not configured"}), 500
-        
         data = request.json or {}
-        device_id = data.get("device_id", "default")
+        device_id = data.get("device_id") or "default"
         
         # Update MongoDB config
         db.file_monitor_config.update_one(
