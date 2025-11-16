@@ -134,16 +134,21 @@ class FileMonitorHandler(FileSystemEventHandler):
             if not os.path.exists(file_path):
                 return
             
-            # Delete old backups
+            # Split filename and extension
+            name, ext = os.path.splitext(filename)
+            
+            # Delete old backups (check both old and new formats)
             for backup_name in os.listdir(self.backup_folder):
-                if backup_name.startswith(filename + '_'):
+                # Match old format: filename_BACKUP or new format: filename_BACKUP.ext
+                if (backup_name.startswith(name + '_BACKUP') or 
+                    backup_name.startswith(filename + '_')):
                     try:
                         os.remove(os.path.join(self.backup_folder, backup_name))
                     except:
                         pass
             
-            # Create new backup
-            backup_name = f"{filename}_BACKUP"
+            # Create new backup with correct naming: filename_BACKUP.ext
+            backup_name = f"{name}_BACKUP{ext}"
             dest_path = os.path.join(self.backup_folder, backup_name)
             shutil.copy2(file_path, dest_path)
             log_message(f"Backed up: {filename}")

@@ -119,21 +119,17 @@
   ('libssl-3.dll', 'C:\\Python314\\DLLs\\libssl-3.dll', 'BINARY'),
   ('libffi-8.dll', 'C:\\Python314\\DLLs\\libffi-8.dll', 'BINARY'),
   ('VCRUNTIME140_1.dll', 'C:\\Python314\\VCRUNTIME140_1.dll', 'BINARY'),
-  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\INSTALLER',
+  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\RECORD',
    'C:\\Users\\NISHANTH '
-   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\INSTALLER',
-   'DATA'),
-  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\top_level.txt',
-   'C:\\Users\\NISHANTH '
-   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\top_level.txt',
+   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\RECORD',
    'DATA'),
   ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\WHEEL',
    'C:\\Users\\NISHANTH '
    'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\WHEEL',
    'DATA'),
-  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\RECORD',
+  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\top_level.txt',
    'C:\\Users\\NISHANTH '
-   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\RECORD',
+   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\top_level.txt',
    'DATA'),
   ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\REQUESTED',
    'C:\\Users\\NISHANTH '
@@ -146,6 +142,10 @@
   ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\METADATA',
    'C:\\Users\\NISHANTH '
    'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\METADATA',
+   'DATA'),
+  ('setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\INSTALLER',
+   'C:\\Users\\NISHANTH '
+   'CK\\AppData\\Roaming\\Python\\Python314\\site-packages\\setuptools\\_vendor\\importlib_metadata-8.0.0.dist-info\\INSTALLER',
    'DATA'),
   ('setuptools\\_vendor\\jaraco\\text\\Lorem ipsum.txt',
    'C:\\Users\\NISHANTH '
