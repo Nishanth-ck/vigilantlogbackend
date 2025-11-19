@@ -308,6 +308,7 @@ def upload_backups_to_cloud():
     config = load_config()
     backup_folder = config.get("backup_folder")
     backend_url = config.get("backend_url", DEFAULT_CONFIG["backend_url"])
+    device_id = config.get("device_id") or "default"
 
     if not backup_folder or not os.path.exists(backup_folder):
         log_message("Cloud upload skipped: backup folder not found")
@@ -326,14 +327,16 @@ def upload_backups_to_cloud():
             try:
                 with open(file_path, "rb") as f:
                     files = {"file": (filename, f, "application/octet-stream")}
+                    data = {"device_id": device_id}
                     resp = requests.post(
                         f"{backend_url}/api/file-monitor/upload",
                         files=files,
+                        data=data,
                         timeout=30,
                     )
 
                 if resp.ok:
-                    log_message(f"Uploaded {filename} to cloud")
+                    log_message(f"Uploaded {filename} to cloud for device {device_id}")
                 else:
                     log_message(
                         f"Cloud upload failed for {filename}: "
@@ -498,6 +501,10 @@ if __name__ == "__main__":
     except Exception as e:
         log_message(f"Fatal error: {e}")
         sys.exit(1)
+
+
+
+
 
 
 
