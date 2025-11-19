@@ -52,6 +52,20 @@ observers = []
 tray_icon = None
 
 
+def get_device_id():
+    """
+    Get device identifier. Uses system hostname.
+    Falls back to 'default' if hostname cannot be determined.
+    """
+    try:
+        hostname = socket.gethostname()
+        if hostname and hostname.strip():
+            return hostname.strip()
+    except Exception as e:
+        log_message(f"Could not get hostname: {e}")
+    return "default"
+
+
 def log_message(message):
     """Log message to file and console."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -74,19 +88,31 @@ def load_config():
     """Load configuration from file."""
     CONFIG_DIR.mkdir(exist_ok=True)
     
+    # Get the actual device hostname
+    detected_device_id = get_device_id()
+    
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r") as f:
                 config = json.load(f)
-                return {**DEFAULT_CONFIG, **config}
+                # Merge with defaults and ensure device_id is set to detected hostname
+                merged_config = {**DEFAULT_CONFIG, **config}
+                merged_config["device_id"] = detected_device_id
+                return merged_config
         except Exception as e:
             log_message(f"Error loading config: {e}")
-            return DEFAULT_CONFIG.copy()
+            default_copy = DEFAULT_CONFIG.copy()
+            default_copy["device_id"] = detected_device_id
+            return default_copy
+    
+    # Create new config with detected hostname
+    initial_config = DEFAULT_CONFIG.copy()
+    initial_config["device_id"] = detected_device_id
     
     with open(CONFIG_FILE, "w") as f:
-        json.dump(DEFAULT_CONFIG, f, indent=2)
+        json.dump(initial_config, f, indent=2)
     
-    return DEFAULT_CONFIG.copy()
+    return initial_config
 
 
 def save_config(config):
@@ -439,9 +465,15 @@ def main():
         log_message(f"Edit: {CONFIG_FILE}")
         # Don't exit - user can configure via web interface
     
-    log_message(f"Device ID: {config['device_id']}")
+    log_message(f"Hostname (Device ID): {config['device_id']}")
     log_message(f"Config: {CONFIG_FILE}")
     log_message(f"Logs: {LOG_FILE}")
+    log_message("")
+    log_message("IMPORTANT: To sync with web UI:")
+    log_message(f"  1. Go to File Settings page")
+    log_message(f"  2. Enter hostname: {config['device_id']}")
+    log_message(f"  3. Configure folders and start monitoring")
+    log_message("")
     
     # Start sync thread
     sync_thread = threading.Thread(target=sync_loop, daemon=True)
@@ -466,5 +498,7 @@ if __name__ == "__main__":
     except Exception as e:
         log_message(f"Fatal error: {e}")
         sys.exit(1)
+
+
 
 
